@@ -1,7 +1,7 @@
 export default defineEventHandler(async (event) => {
   const body = await readBody(event);
   
-  // Server key diambil dari environment variable untuk keamanan
+  // GitHub otomatis memblokir upload kunci asli! Gunakan Vercel Environment Variable (MIDTRANS_SERVER_KEY)
   const serverKey = process.env.MIDTRANS_SERVER_KEY || '';
 
   const payload = {
@@ -33,7 +33,7 @@ export default defineEventHandler(async (event) => {
       headers: {
         'Accept': 'application/json',
         'Content-Type': 'application/json',
-        'Authorization': `Basic ${Buffer.from(serverKey + ':').toString('base64')}`
+        'Authorization': `Basic ${btoa(serverKey + ':')}`
       },
       body: JSON.stringify(payload)
     });
@@ -50,8 +50,8 @@ export default defineEventHandler(async (event) => {
     return data; // returns { token, redirect_url }
   } catch (error: any) {
     throw createError({
-      statusCode: 500,
-      statusMessage: error.message
+      statusCode: error.statusCode || 500,
+      statusMessage: error.statusMessage || error.message || 'Terjadi kesalahan pada server'
     });
   }
 });
