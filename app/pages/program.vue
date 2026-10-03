@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
 import { ASSETS } from '~/constants/assets';
-import { useDonationModal } from '~/composables/useDonationModal';
-
-const { openDonationModal } = useDonationModal();
 
 onMounted(() => {
-  window.scrollTo(0, 0);
+  if (import.meta.client) {
+    window.scrollTo(0, 0);
+  }
 });
 
 const filters = [
@@ -80,6 +79,62 @@ const formatCurrency = (val: number) => {
 
 const getPercentage = (collected: number, target: number) => {
   return Math.min(100, Math.round((collected / target) * 100));
+};
+
+// Set environment ke Sandbox
+const clientKey = 'Mid-client-ahS9VJr1tzlppBbC';
+const snapSrc = 'https://app.sandbox.midtrans.com/snap/snap.js';
+
+useHead({
+  script: [
+    {
+      src: snapSrc,
+      'data-client-key': clientKey
+    }
+  ]
+});
+
+const isProcessing = ref<number | null>(null);
+
+const quickDonate = async (program: any) => {
+  isProcessing.value = program.id;
+  try {
+    const response = await $fetch('/api/payment/create', {
+      method: 'POST',
+      body: {
+        programId: program.id.toString(),
+        programName: program.title,
+        amount: 50000, // Nominal default
+        name: 'Hamba Allah',
+        email: 'donatur@worthydays.com',
+        phone: '08123456789',
+        city: 'Online'
+      }
+    });
+
+    if (response && response.token) {
+      (window as any).snap.pay(response.token, {
+        onSuccess: function (result: any) {
+          alert('Pembayaran sukses! Terima kasih atas donasi Anda untuk ' + program.title);
+        },
+        onPending: function (result: any) {
+          alert('Menunggu pembayaran diselesaikan...');
+        },
+        onError: function (result: any) {
+          alert('Pembayaran gagal, silakan coba lagi.');
+        },
+        onClose: function () {
+          // Do nothing
+        }
+      });
+    } else {
+      alert('Gagal mendapatkan token transaksi.');
+    }
+  } catch (error: any) {
+    alert('Terjadi kesalahan: ' + error.message);
+  } finally {
+    isProcessing.value = null;
+  }
 };
 </script>
 
@@ -166,9 +221,15 @@ const getPercentage = (collected: number, target: number) => {
                     <button class="w-8 h-8 rounded-full border border-gray-200 flex items-center justify-center text-gray-400 hover:text-green-500 hover:border-green-500 transition-colors">w</button>
                   </div>
                   
-                  <button @click="openDonationModal" class="bg-[#78CFA1] hover:bg-[#68be91] text-white font-bold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5">
-                    Donasi
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                  <button @click="quickDonate(prog)" :disabled="isProcessing === prog.id" class="bg-[#78CFA1] hover:bg-[#68be91] text-white font-bold px-6 py-2.5 rounded-full flex items-center gap-2 transition-all shadow-md hover:shadow-lg hover:-translate-y-0.5" :class="{'opacity-70 cursor-wait': isProcessing === prog.id}">
+                    <template v-if="isProcessing === prog.id">
+                      <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                      Loading
+                    </template>
+                    <template v-else>
+                      Donasi
+                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+                    </template>
                   </button>
                 </div>
               </div>
